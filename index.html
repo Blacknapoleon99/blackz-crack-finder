@@ -268,7 +268,9 @@
   }
 
   /* ================= TERMINAL STAGE: ghost portrait + background FX ================= */
-  header { position: relative; overflow: hidden; isolation: isolate; }
+  /* min-height guarantees the 240px portrait always has room, so it can't get
+     clipped on short viewports or when the ASCII banner shrinks. */
+  header { position: relative; overflow: hidden; isolation: isolate; min-height: 280px; }
   header > *:not(.term-fx):not(.ghost) { position: relative; z-index: 2; }
 
   /* layered background inside the terminal window */
@@ -287,29 +289,35 @@
   }
   @keyframes sweep { 0% { transform: translateY(-120%); } 100% { transform: translateY(520%); } }
 
-  /* operator portrait — grayscale, low opacity, flickers like a CRT ghost */
+  /* operator portrait — grayscale, blown out to phosphor-green, flickers like
+     a CRT ghost burned into the terminal. `screen` blending over the near-black
+     surface is what makes it read as light emitted by the tube rather than a
+     photo pasted on top. */
   .ghost {
-    position: absolute; z-index: 1; right: 26px; top: 50%; transform: translateY(-50%);
-    width: 190px; height: 190px; object-fit: cover; border-radius: 4px; pointer-events: none;
-    filter: grayscale(1) contrast(1.5) brightness(0.85);
-    mix-blend-mode: screen; opacity: 0.16;
-    mask-image: radial-gradient(ellipse 62% 62% at 50% 45%, #000 45%, transparent 78%);
-    -webkit-mask-image: radial-gradient(ellipse 62% 62% at 50% 45%, #000 45%, transparent 78%);
-    animation: ghostFlash 9s infinite steps(1, end);
+    position: absolute; z-index: 1; right: 34px; top: 50%; transform: translateY(-50%);
+    width: 240px; height: 240px; object-fit: cover; pointer-events: none;
+    filter: grayscale(1) contrast(1.75) brightness(1.15) sepia(1) hue-rotate(75deg) saturate(2.2);
+    mix-blend-mode: screen; opacity: 0.42;
+    mask-image: radial-gradient(ellipse 60% 60% at 50% 42%, #000 40%, transparent 76%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 42%, #000 40%, transparent 76%);
+    animation: ghostFlash 7s infinite steps(1, end);
     will-change: opacity;
   }
   @keyframes ghostFlash {
-    0%, 40% { opacity: 0.10; }
-    41% { opacity: 0.34; } 42% { opacity: 0.06; } 43% { opacity: 0.30; }
-    44%, 71% { opacity: 0.13; }
-    72% { opacity: 0.40; } 73% { opacity: 0.09; } 74% { opacity: 0.26; }
-    75%, 100% { opacity: 0.11; }
+    0%, 32% { opacity: 0.34; }
+    33% { opacity: 0.80; } 34% { opacity: 0.18; } 35% { opacity: 0.68; }
+    36%, 64% { opacity: 0.40; }
+    65% { opacity: 0.88; } 66% { opacity: 0.22; } 67% { opacity: 0.62; }
+    68%, 88% { opacity: 0.36; }
+    89% { opacity: 0.72; } 90% { opacity: 0.26; }
+    91%, 100% { opacity: 0.38; }
   }
-  @media (max-width: 820px) { .ghost { display: none; } }
+  @media (max-width: 900px) { .ghost { width: 150px; height: 150px; right: 12px; opacity: 0.26; } }
+  @media (max-width: 640px) { .ghost { display: none; } }
   /* respect reduced-motion for every decorative animation */
   @media (prefers-reduced-motion: reduce) {
     .ghost, .term-fx.sweep, .crt-flicker, h1.glitch::before, h1.glitch::after, .cursor { animation: none !important; }
-    .ghost { opacity: 0.12; }
+    .ghost { opacity: 0.38; }
   }
 
   /* ================= LIVE PIPELINE (visual timer + per-step status) ================= */
