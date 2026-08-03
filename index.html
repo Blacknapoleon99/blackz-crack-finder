@@ -297,27 +297,37 @@
     position: absolute; z-index: 1; right: 34px; top: 50%; transform: translateY(-50%);
     width: 240px; height: 240px; object-fit: cover; pointer-events: none;
     filter: grayscale(1) contrast(1.75) brightness(1.15) sepia(1) hue-rotate(75deg) saturate(2.2);
-    mix-blend-mode: screen; opacity: 0.42;
+    mix-blend-mode: screen;
+    /* Invisible at rest. The face only exists during the flash frames below —
+       if the animation never runs (reduced motion, animation disabled), the
+       portrait simply never appears, which is the intended resting state. */
+    opacity: 0;
     mask-image: radial-gradient(ellipse 60% 60% at 50% 42%, #000 40%, transparent 76%);
     -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 42%, #000 40%, transparent 76%);
-    animation: ghostFlash 7s infinite steps(1, end);
+    animation: ghostFlash 8s infinite steps(1, end);
     will-change: opacity;
   }
+  /* Two bursts per 8s cycle, two pulses each. steps(1,end) means every frame is
+     a hard cut — no fading, so it reads as a signal breaking through rather than
+     a photo dissolving in. Kept to 2 pulses per burst (~4 per 8s, never 3+ within
+     one second) to stay under the WCAG general flash threshold. */
   @keyframes ghostFlash {
-    0%, 32% { opacity: 0.34; }
-    33% { opacity: 0.80; } 34% { opacity: 0.18; } 35% { opacity: 0.68; }
-    36%, 64% { opacity: 0.40; }
-    65% { opacity: 0.88; } 66% { opacity: 0.22; } 67% { opacity: 0.62; }
-    68%, 88% { opacity: 0.36; }
-    89% { opacity: 0.72; } 90% { opacity: 0.26; }
-    91%, 100% { opacity: 0.38; }
+    0%, 29%   { opacity: 0; }
+    30%       { opacity: 0.85; }
+    32%       { opacity: 0; }
+    35%       { opacity: 0.55; }
+    37%, 71%  { opacity: 0; }
+    72%       { opacity: 0.92; }
+    74%       { opacity: 0; }
+    77%       { opacity: 0.60; }
+    79%, 100% { opacity: 0; }
   }
-  @media (max-width: 900px) { .ghost { width: 150px; height: 150px; right: 12px; opacity: 0.26; } }
+  @media (max-width: 900px) { .ghost { width: 150px; height: 150px; right: 12px; } }
   @media (max-width: 640px) { .ghost { display: none; } }
   /* respect reduced-motion for every decorative animation */
   @media (prefers-reduced-motion: reduce) {
     .ghost, .term-fx.sweep, .crt-flicker, h1.glitch::before, h1.glitch::after, .cursor { animation: none !important; }
-    .ghost { opacity: 0.38; }
+    /* no animation means no flash means no face — correct by construction */
   }
 
   /* ================= LIVE PIPELINE (visual timer + per-step status) ================= */
