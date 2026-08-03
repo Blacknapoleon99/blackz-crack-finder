@@ -1,6 +1,7 @@
 # BLACKZ CRACK FINDER
 
 [![test](https://github.com/Blacknapoleon99/blackz-crack-finder/actions/workflows/test.yml/badge.svg)](https://github.com/Blacknapoleon99/blackz-crack-finder/actions/workflows/test.yml)
+[![deploy](https://github.com/Blacknapoleon99/blackz-crack-finder/actions/workflows/pages.yml/badge.svg)](https://github.com/Blacknapoleon99/blackz-crack-finder/actions/workflows/pages.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 `// scan any repo // find real issues`
@@ -21,7 +22,7 @@ cd blackz-crack-finder
 open index.html   # or just double-click it, or drag it into a browser tab
 ```
 
-Or view it live via GitHub Pages: `https://blacknapoleon99.github.io/blackz-crack-finder/`
+Live version: `https://blacknapoleon99.github.io/blackz-crack-finder/`
 
 ## What it does
 
@@ -38,6 +39,21 @@ you're showing this to) can go check it against the actual source. There is no p
 "case study" baked into the page; the severity chart, stats, filters, and fix roadmap are all
 computed live from whatever was actually found in your last scan.
 
+## Watch it work
+
+A scan isn't a black box that emits a verdict. While it runs, the page shows:
+
+- **A live pipeline** — every step (parse → resolve branch → list files → filter → download →
+  run rules → render), its current state, and how long each one actually took. The timings are
+  measured with `performance.now()` around the real work, not animated for effect.
+- **A running timer** and progress bar for the scan as a whole.
+- **A network trace** — the literal request URL, HTTP status, wall-clock milliseconds, and the
+  first bytes of GitHub's real response body, for every single call the page makes. It works by
+  wrapping the page's own `fetch`, so it can't drift from what really happened.
+
+Paste and upload scans show an empty trace on purpose: those modes make **zero** network
+requests, and the panel says so rather than hiding the fact.
+
 ## How it works (the honest version)
 
 1. You give it a real source: pasted text, uploaded files, or a public GitHub repo.
@@ -49,6 +65,43 @@ computed live from whatever was actually found in your last scan.
 4. Findings render with the real `file:line` and matched text as evidence.
 
 Full architecture and data-flow diagram: [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
+
+## Where the scanned data goes (short answer: nowhere)
+
+This is the question people should ask a security tool, so here's the whole truth:
+
+| Thing | Where it lives | How long |
+|---|---|---|
+| Pasted code / uploaded files | Your browser tab's memory only | Until you close the tab |
+| File contents fetched from GitHub | Your browser tab's memory only | Until you close the tab |
+| Your **last** scan's findings | `localStorage`, on your own machine | **24 hours**, then auto-expired on read |
+| Anything at all | A server we own | Never — there is no server |
+
+The only persistence is a single `localStorage` key (`bcf:lastScan`) so a refresh doesn't
+lose your results. It's capped, versioned, self-expiring, and wiped by the **Clear cached
+scan** button in the UI. It is never transmitted, because there is nothing to transmit it to.
+
+**Why not a database?** Storing other people's source code and vulnerability findings on a
+server would turn a harmless static page into a genuinely attractive breach target, and it
+would mean writing a privacy policy for data nobody needs kept. Keeping it client-side isn't
+a shortcut — it's the security property.
+
+## Hosting
+
+Deployed as pure static files, so effectively any host works. Two are configured:
+
+- **GitHub Pages** — automatic via `.github/workflows/pages.yml` on every green push to
+  `main`. Zero config, free TLS, no build step. Enable it once under
+  *Settings → Pages → Source: GitHub Actions*.
+- **Cloudflare Pages** — recommended for a custom domain. Point it at this repo with build
+  command *(none)* and output directory `/`. The `_headers` file then applies a **real**
+  Content-Security-Policy, HSTS, and `frame-ancestors 'none'`, which GitHub Pages cannot do
+  because it does not support custom response headers.
+
+`index.html` also carries the same CSP as a `<meta>` tag, so the page is locked down even on
+a host that ignores `_headers`. There is deliberately no inline `<script>` anywhere, which is
+what lets `script-src` stay at `'self'` instead of `'unsafe-inline'` — and a CI check fails
+the build if an inline script ever creeps back in.
 
 ## Use cases
 
@@ -66,12 +119,19 @@ None of these replace a real SAST tool (Semgrep, CodeQL) for anything you're shi
 
 ## Architecture
 
-100% static: `index.html` (markup/styles/UI) + `scanner.js` (rule engine + GitHub indexer,
-DOM-free and independently testable). Scanning a public repo calls `api.github.com` (file tree)
-and `raw.githubusercontent.com` (file contents) directly from your browser — both are documented
-by GitHub to support CORS for exactly this kind of client-side use, unauthenticated. Nothing you
-paste, upload, or scan is ever sent anywhere else. Full breakdown in
-[SECURITY.md](SECURITY.md) and [docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
+100% static, three files:
+
+| File | Role |
+|---|---|
+| `index.html` | Markup + styles only. No inline JavaScript. |
+| `scanner.js` | The rule engine + GitHub indexer. DOM-free, so it's testable in plain Node. |
+| `app.js` | UI layer: rendering, live pipeline, network trace, localStorage cache. |
+
+Scanning a public repo calls `api.github.com` (file tree) and `raw.githubusercontent.com`
+(file contents) directly from your browser — both are documented by GitHub to support CORS for
+exactly this kind of client-side use, unauthenticated. Nothing you paste, upload, or scan is
+ever sent anywhere else. Full breakdown in [SECURITY.md](SECURITY.md) and
+[docs/SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md).
 
 ## Verified, not just claimed
 
@@ -83,7 +143,7 @@ synthetic examples:
 - A file fetched live from a popular, well-maintained real-world Python project produced **zero**
   findings, confirming the scanner doesn't just cry wolf on clean code.
 - Both are captured as permanent regression tests in `tests/scanner.test.js`, which CI runs on
-  every push.
+  every push, alongside `tests/ui.smoke.js` which drives all three scan modes end-to-end.
 
 ## Limitations
 
@@ -104,10 +164,11 @@ real static analysis. Concretely, today:
 ## Testing
 
 ```bash
-node tests/scanner.test.js
+node tests/scanner.test.js   # rule engine, incl. real DVWA fixtures
+node tests/ui.smoke.js       # app.js against a DOM stub, all 3 scan modes
 ```
 
-Zero test-framework dependency, on purpose. CI runs the same command on every push/PR.
+Zero test-framework dependency, on purpose. CI runs both on every push/PR.
 
 ## Contributing
 
