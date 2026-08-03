@@ -3,6 +3,15 @@ name: deploy
 # Publishes the static site to GitHub Pages on every push to main, but only
 # after the test job has passed — a broken scanner should never reach the
 # public URL. There is no build step: the repo root IS the site.
+#
+# ONE-TIME SETUP (required once, by a repo admin):
+#   Settings -> Pages -> Source: "GitHub Actions"
+# or, with the gh CLI:
+#   gh api -X POST repos/OWNER/REPO/pages -f build_type=workflow
+#
+# This cannot be automated from inside the workflow: creating a Pages site
+# needs the `administration` scope, and the default GITHUB_TOKEN doesn't have
+# it (verified — it fails with "Resource not accessible by integration").
 
 on:
   push:
@@ -39,11 +48,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
-        with:
-          # Turn Pages on automatically the first time this runs. Without this,
-          # the job dies with "Site not found" until someone flips the switch
-          # in Settings -> Pages by hand.
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "."
