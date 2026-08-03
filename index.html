@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLACKZ CRACK FINDER — scan any public repo, pasted code, or uploaded files</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --surface: #030a04;
+    --surface-2: #06140a;
+    --border: #113a1d;
+    --border-bright: #1d6b32;
+    --text: #c8ffd8;
+    --text-dim: #5c9a71;
+    --text-faint: #2e5c3c;
+    --green: #00ff66;
+    --green-dim: #08c94e;
+    --red: #ff3b4e;
+    --orange: #ff9130;
+    --yellow: #ffd83b;
+    --cyan: #23e8ff;
+    --pink: #ff2ec4;
+    --red-soft: #ff8a95;
+    --yellow-soft: #ffe98a;
+    --green-soft: #8affb3;
+    --on-accent: #001a08;
+    --green-bright: #33ff85;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --term: 'Share Tech Mono', var(--mono);
+    --vt: 'VT323', var(--mono);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--mono); line-height: 1.55; }
+  body { min-height: 100vh; position: relative; overflow-x: hidden; }
+
+  /* ---------- Matrix rain + CRT overlay ---------- */
+  #matrix-rain { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.16; pointer-events: none; }
+  .scanlines {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,255,102,0.035) 3px, rgba(0,0,0,0) 4px);
+    mix-blend-mode: overlay;
+  }
+  .crt-flicker { position: fixed; inset: 0; z-index: 4; pointer-events: none; background: rgba(0,255,102,0.015); animation: flicker 6.5s infinite; }
+  @keyframes flicker {
+    0%, 92%, 100% { opacity: 0; }
+    93% { opacity: 1; }
+    94% { opacity: 0.2; }
+    95% { opacity: 0.6; }
+    96% { opacity: 0.1; }
+  }
+
+  .wrap { position: relative; z-index: 2; max-width: 1180px; margin: 0 auto; padding: 24px 24px 90px; }
+
+  /* ---------- Terminal chrome ---------- */
+  .term-bar {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface-2); border: 1px solid var(--border); border-bottom: none;
+    border-radius: 8px 8px 0 0; padding: 9px 14px; font-family: var(--term); font-size: 12px; color: var(--text-dim);
+  }
+  .term-dots { display: flex; gap: 6px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .dot.red { background: #ff5f57; } .dot.yellow { background: #febc2e; } .dot.green { background: #28c840; }
+  .term-title { flex: 1; text-align: center; letter-spacing: 0.03em; }
+
+  header {
+    border: 1px solid var(--border); border-top: none; background: var(--surface);
+    padding: 22px 26px 18px; margin-bottom: 28px; border-radius: 0 0 8px 8px;
+  }
+  .ascii-art { font-family: var(--mono); font-size: 11px; line-height: 1.15; overflow-x: auto; white-space: pre; margin-bottom: 10px; letter-spacing: 1px; }
+  .ascii-green { color: var(--green); text-shadow: 0 0 6px rgba(0,255,102,0.6); }
+  .ascii-red { color: var(--red); text-shadow: 0 0 6px rgba(255,59,78,0.6); display: block; margin-top: 2px; }
+  .ascii-cyan { color: var(--cyan); text-shadow: 0 0 6px rgba(35,232,255,0.6); display: block; margin-top: 2px; }
+  @media (max-width: 700px) { .ascii-art { font-size: 7px; } }
+
+  h1.glitch {
+    font-family: var(--vt); font-size: 24px; font-weight: 400; letter-spacing: 0.02em; color: var(--text);
+    position: relative; margin-bottom: 14px;
+  }
+  h1.glitch::before, h1.glitch::after {
+    content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; overflow: hidden; background: var(--surface);
+  }
+  h1.glitch::before { color: var(--red); left: 2px; text-shadow: -1px 0 var(--red); animation: glitch1 4.5s infinite linear alternate-reverse; }
+  h1.glitch::after { color: var(--cyan); left: -2px; text-shadow: 1px 0 var(--cyan); animation: glitch2 3.7s infinite linear alternate-reverse; }
+  @keyframes glitch1 { 0%,92%,100%{clip-path:inset(0 0 0 0)} 93%{clip-path:inset(10% 0 60% 0)} 95%{clip-path:inset(60% 0 5% 0)} 97%{clip-path:inset(30% 0 40% 0)} }
+  @keyframes glitch2 { 0%,90%,100%{clip-path:inset(0 0 0 0)} 91%{clip-path:inset(70% 0 5% 0)} 94%{clip-path:inset(15% 0 55% 0)} 98%{clip-path:inset(45% 0 20% 0)} }
+  .cursor { display: inline-block; animation: blink 1s step-start infinite; color: var(--green); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .status-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip { font-family: var(--term); font-size: 11px; padding: 4px 10px; border: 1px solid var(--border-bright); border-radius: 3px; letter-spacing: 0.05em; }
+  .chip-online { color: var(--green); border-color: var(--green-dim); }
+  .chip-crit { color: var(--red); border-color: var(--red); }
+  .chip-high { color: var(--orange); border-color: var(--orange); }
+  .chip-med { color: var(--yellow); border-color: var(--yellow); }
+  .chip-secrets { color: var(--cyan); border-color: var(--cyan); }
+  .console-ticker { font-family: var(--term); font-size: 12px; color: var(--text-faint); border-top: 1px dashed var(--border); padding-top: 10px; min-height: 18px; }
+  .console-ticker::before { content: "visitor@blackz:~$ "; color: var(--green-dim); }
+
+  section { margin-bottom: 40px; }
+  .sec-title { font-family: var(--term); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dim); margin-bottom: 14px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .sec-title::before { content: "// "; color: var(--text-faint); }
+  .sec-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+
+  a { color: var(--cyan); }
+
+  /* ---------- How it works / Legend ---------- */
+  .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px 22px; }
+  .steps { list-style: none; counter-reset: step; display: grid; gap: 14px; }
+  .steps li { counter-increment: step; padding-left: 34px; position: relative; font-size: 13.5px; color: var(--text-dim); }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 3px;
+    background: var(--green); color: var(--on-accent); font-family: var(--term); font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps li strong { color: var(--text); }
+  .steps li code { background: var(--surface-2); color: var(--yellow); padding: 1px 6px; border-radius: 3px; font-size: 12px; }
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 800px) { .legend-grid { grid-template-columns: 1fr; } }
+  .legend-list { list-style: none; display: grid; gap: 10px; }
+  .legend-list li { font-size: 13px; color: var(--text-dim); display: flex; gap: 10px; align-items: flex-start; }
+  .legend-list .swatch { flex-shrink: 0; margin-top: 3px; width: 10px; height: 10px; border-radius: 2px; }
+  .legend-list strong { color: var(--text); }
+
+  /* ---------- Scanner ---------- */
+  .scanner-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
+  .scan-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .scan-tab { font-family: var(--term); font-size: 12px; padding: 8px 14px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; border-radius: 3px; letter-spacing: 0.04em; }
+  .scan-tab.active { color: var(--on-accent); background: var(--green); border-color: var(--green); font-weight: 700; }
+  .scan-panel { display: none; }
+  .scan-panel.active { display: block; }
+  .scan-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .scan-input, textarea.scan-input {
+    flex: 1; min-width: 220px; background: var(--bg); border: 1px solid var(--border-bright); border-radius: 3px;
+    padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 13px; outline: none;
+  }
+  .scan-input:focus { border-color: var(--green); box-shadow: 0 0 0 2px rgba(0,255,102,0.15); }
+  .scan-input::placeholder { color: var(--text-faint); }
+  textarea.scan-input { min-height: 150px; resize: vertical; width: 100%; }
+  .scan-input.small { flex: 0 0 160px; min-width: 140px; }
+  .scan-btn {
+    background: var(--green); color: var(--on-accent); border: none; padding: 10px 18px; border-radius: 3px; font-weight: 700;
+    font-family: var(--term); font-size: 13px; cursor: pointer; letter-spacing: 0.03em;
+  }
+  .scan-btn:hover { background: var(--green-bright); }
+  .scan-btn:disabled { background: var(--border); color: var(--text-faint); cursor: not-allowed; }
+  .scan-note { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 12px; line-height: 1.6; }
+  .scan-file-list { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  .scan-log {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px;
+    font-family: var(--term); font-size: 12px; color: var(--text-dim); max-height: 180px; overflow-y: auto; display: none;
+  }
+  .scan-log.show { display: block; }
+  .scan-log .ln { white-space: pre-wrap; }
+  .scan-log .ln.err { color: var(--red); }
+  .scan-log .ln.ok { color: var(--green); }
+  .scan-error { display: none; margin-top: 10px; color: var(--red); font-size: 12.5px; border: 1px solid var(--red); background: rgba(255,59,78,0.08); padding: 10px 12px; border-radius: 3px; }
+  .scan-error.show { display: block; }
+
+  /* Security banner */
+  .security-banner { background: var(--surface); border: 1px solid var(--border-bright); border-radius: 4px; padding: 16px 20px; margin-bottom: 26px; }
+  .security-banner h3 { color: var(--green); font-size: 14px; margin-bottom: 6px; font-family: var(--term); }
+  .security-banner p { color: var(--text-dim); font-size: 13px; }
+  .security-banner.bad { border-color: var(--red); }
+  .security-banner.bad h3 { color: var(--red); }
+  .security-banner.neutral { border-color: var(--border); }
+  .security-banner.neutral h3 { color: var(--text-dim); }
+
+  /* Summary stats */
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  @media (max-width: 720px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px; }
+  .stat .num { font-size: 26px; font-weight: 800; line-height: 1; font-family: var(--term); }
+  .stat .label { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; }
+  .stat.red .num { color: var(--red); } .stat.orange .num { color: var(--orange); } .stat.yellow .num { color: var(--yellow); } .stat.cyan .num { color: var(--cyan); }
+
+  /* Charts */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+  .chart h3 { font-size: 13px; font-weight: 700; margin-bottom: 14px; color: var(--text); font-family: var(--term); }
+  .chart .note { font-size: 11.5px; color: var(--text-faint); margin-top: 10px; }
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 30px; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 12px; }
+  .bar-label { color: var(--text-dim); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { background: var(--surface-2); border-radius: 3px; height: 18px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+  .bar-count { color: var(--text); font-weight: 700; }
+  .chart-empty { color: var(--text-faint); font-size: 12.5px; font-style: italic; padding: 20px 0; text-align: center; }
+
+  /* Repo cards */
+  .repos { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
+  .repo { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+  .repo-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .repo-name .lang { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--surface-2); color: var(--text-dim); font-weight: 600; }
+  .repo-url { color: var(--text-faint); font-size: 12px; font-family: var(--mono); word-break: break-all; }
+  .repo-empty { color: var(--text-faint); font-size: 13px; padding: 20px; text-align: center; border: 1px dashed var(--border); border-radius: 4px; }
+
+  /* Filter pills */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .pill { padding: 7px 13px; border-radius: 3px; font-size: 11.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-bright); background: var(--surface); color: var(--text-dim); transition: all 0.15s; user-select: none; font-family: var(--term); }
+  .pill:hover { color: var(--text); border-color: var(--green-dim); }
+  .pill.active { background: var(--green); color: var(--on-accent); border-color: var(--green); }
+  .pill .count { margin-left: 6px; opacity: 0.75; font-weight: 500; }
+
+  /* Issue card */
+  .issue { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+  .issue:hover { border-color: var(--border-bright); }
+  .issue-head { padding: 16px 20px; cursor: pointer; display: flex; align-items: center; gap: 14px; user-select: none; flex-wrap: wrap; }
+  .issue-head:hover { background: var(--surface-2); }
+  .issue-sev { font-size: 10px; font-weight: 700; padding: 5px 9px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; font-family: var(--term); }
+  .sev-critical { background: rgba(255,59,78,0.15); color: var(--red); border: 1px solid var(--red); }
+  .sev-high { background: rgba(255,145,48,0.15); color: var(--orange); border: 1px solid var(--orange); }
+  .sev-medium { background: rgba(255,216,59,0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+  .sev-low { background: rgba(35,232,255,0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+  .sev-info { background: rgba(0,255,102,0.15); color: var(--green); border: 1px solid var(--green-dim); }
+  .issue-title { flex: 1; font-size: 14px; font-weight: 600; line-height: 1.3; min-width: 200px; }
+  .issue-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { font-size: 10px; padding: 3px 7px; border-radius: 3px; background: var(--surface-2); color: var(--text-dim); font-weight: 500; border: 1px solid var(--border); font-family: var(--term); }
+  .tag.repo { background: rgba(0,255,102,0.08); color: var(--green); border-color: var(--green-dim); }
+  .tag.cat { background: rgba(35,232,255,0.08); color: var(--cyan); border-color: var(--cyan); }
+  .tag.loc { color: var(--text-faint); }
+  .chevron { color: var(--text-faint); font-size: 12px; transition: transform 0.2s; flex-shrink: 0; }
+  .issue.open .chevron { transform: rotate(90deg); }
+
+  .issue-body { padding: 0 20px 20px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 13.5px; display: none; }
+  .issue.open .issue-body { display: block; padding-top: 16px; }
+
+  .explainer { display: grid; grid-template-columns: 100px 1fr; gap: 10px 16px; margin-bottom: 14px; }
+  .explainer-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); padding-top: 2px; font-family: var(--term); }
+  .explainer-text { color: var(--text-dim); font-size: 13.5px; }
+  .explainer-text strong { color: var(--text); }
+  .explainer-text code { background: var(--surface-2); padding: 2px 6px; border-radius: 3px; color: var(--yellow); font-size: 12px; }
+  .explainer-text em { color: var(--cyan); font-style: normal; }
+
+  .code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin: 10px 0; }
+  .code-block-header { background: var(--surface-2); padding: 6px 12px; font-size: 10.5px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid var(--border); font-family: var(--term); }
+  .code-block-header.good { color: var(--green); }
+  .code-block pre { padding: 12px 14px; overflow-x: auto; font-size: 12px; line-height: 1.6; color: var(--text-dim); margin: 0; }
+  .code-block pre .com { color: var(--text-faint); font-style: italic; }
+
+  /* Roadmap */
+  .roadmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .roadmap { grid-template-columns: 1fr; } }
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 18px; }
+  .phase h3 { font-size: 13px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; font-family: var(--term); }
+  .phase .phase-num { font-size: 10.5px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
+  .phase.ship .phase-num { background: rgba(255,59,78,0.2); color: var(--red); }
+  .phase.soon .phase-num { background: rgba(255,145,48,0.2); color: var(--orange); }
+  .phase.later .phase-num { background: rgba(255,216,59,0.2); color: var(--yellow); }
+  .phase .est { font-size: 11px; color: var(--text-faint); margin-bottom: 12px; }
+  .phase ul { list-style: none; }
+  .phase li { font-size: 12.5px; padding: 5px 0; color: var(--text-dim); display: flex; align-items: flex-start; gap: 8px; }
+  .phase li::before { content: '>'; color: var(--green); flex-shrink: 0; font-weight: 700; }
+  .phase li strong { color: var(--text); font-weight: 600; }
+
+  footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 11.5px; text-align: center; font-family: var(--term); }
+  footer a { color: var(--green-dim); }
+
+  /* Accessibility: visible keyboard focus on every interactive element */
+  a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible,
+  .pill:focus-visible, .scan-tab:focus-visible, .issue-head:focus-visible {
+    outline: 2px solid var(--green);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+<canvas id="matrix-rain"></canvas>
+<div class="scanlines"></div>
+<div class="crt-flicker"></div>
+
+<div class="wrap">
+
+  <div class="term-bar">
+    <span class="term-dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></span>
+    <span class="term-title">visitor@blackz:~/scan — bash — 118×42</span>
+    <span style="width:53px"></span>
+  </div>
+
+  <header>
+    <pre class="ascii-art" aria-hidden="true"><span class="ascii-green">████  █      ███   ████ █   █ █████
+█   █ █     █   █ █     █  █     █
+████  █     █████ █     ███     █
+█   █ █     █   █ █     █  █   █
+████  █████ █   █  ████ █   █ █████ </span><span class="ascii-red"> ████ ████   ███   ████ █   █
+█     █   █ █   █ █     █  █
+█     ████  █████ █     ███
+█     █  █  █   █ █     █  █
+ ████ █   █ █   █  ████ █   █ </span><span class="ascii-cyan">█████ █████ █   █ ████  █████ ████
+█       █   ██  █ █   █ █     █   █
+███     █   █ █ █ █   █ ███   ████
+█       █   █  ██ █   █ █     █  █
+█     █████ █   █ ████  █████ █   █ </span></pre>
+    <h1 class="glitch" data-text="// scan any repo // find real issues">// scan any repo // find real issues<span class="cursor">█</span></h1>
+    <div class="status-chips">
+      <span class="chip chip-online">● READY</span>
+      <span class="chip chip-crit" id="chip-crit">— critical</span>
+      <span class="chip chip-high" id="chip-high">— high</span>
+      <span class="chip chip-med" id="chip-med">— medium</span>
+      <span class="chip chip-secrets" id="chip-secrets">secrets: —</span>
+    </div>
+    <div class="console-ticker" id="ticker">initializing...</div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section>
+    <div class="sec-title">how this actually works</div>
+    <div class="info-card">
+      <ol class="steps">
+        <li><strong>You pick a real source</strong> — paste code directly, upload files from your computer, or type any
+          <strong>public</strong> GitHub repo (<code>owner/repo</code> or a full URL).</li>
+        <li><strong>Nothing is pre-written.</strong> For a GitHub repo, this page asks GitHub's own public API
+          (<code>api.github.com</code>) for the real file list, then downloads each file's actual text straight from
+          <code>raw.githubusercontent.com</code> — the same bytes anyone sees on github.com. For paste/upload, it reads
+          exactly what you gave it.</li>
+        <li><strong>The same ~13 rules run on every scan, every time</strong> — hardcoded secrets, CORS wildcards,
+          SQL/shell injection, XSS sinks, weak crypto, and more. No rule is written "about" any specific repo; every
+          rule is generic pattern-matching applied fresh to whatever you just gave it.</li>
+        <li><strong>Every result shows its receipts</strong> — the exact file, line number, and matched snippet, so you
+          can go check it yourself in the real source. If a card doesn't show a real <code>file:line</code>, it isn't
+          from a live scan.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- SCANNER -->
+  <section>
+    <div class="sec-title">scan a target</div>
+    <div class="scanner-card">
+      <div class="scan-tabs" role="tablist">
+        <div class="scan-tab active" data-mode="github" role="tab" tabindex="0" aria-selected="true">▶ GitHub repo</div>
+        <div class="scan-tab" data-mode="paste" role="tab" tabindex="0" aria-selected="false">▶ Paste code</div>
+        <div class="scan-tab" data-mode="upload" role="tab" tabindex="0" aria-selected="false">▶ Upload files</div>
+      </div>
+
+      <div class="scan-panel active" data-panel="github">
+        <div class="scan-row">
+          <input class="scan-input" id="gh-repo" type="text" placeholder="owner/repo or https://github.com/owner/repo" autocomplete="off">
+          <input class="scan-input small" id="gh-branch" type="text" placeholder="branch (auto)" autocomplete="off">
+          <button class="scan-btn" id="gh-scan-btn">▶ Index &amp; scan</button>
+        </div>
+      </div>
+
+      <div class="scan-panel" data-panel="paste">
+        <textarea class="scan-input" id="paste-code" placeholder="Paste a file's source here — Python, JS/TS, config, .env, anything text-based..."></textarea>
+        <div class="scan-row" style="margin-top:10px">
+          <input class="scan-input small" id="paste-name" type="text" placeholder="filename (optional)" autocomplete="off">
+          <button class="scan-btn" id="paste-scan-btn">▶ Scan pasted code</button>
+        </div>
+      </div>
+
+      <div class="scan-panel" data-panel="upload">
+        <div class="scan-row">
+          <input class="scan-input" id="upload-files" type="file" multiple>
+          <button class="scan-btn" id="upload-scan-btn">▶ Scan files</button>
+        </div>
+        <div class="scan-file-list" id="upload-file-list"></div>
+      </div>
+
+      <div class="scan-note">
+        Runs entirely in your browser — nothing is uploaded anywhere. Public repos are read via <code>api.github.com</code> (file tree) and
+        <code>raw.githubusercontent.com</code> (file contents), same as any browser could. Capped at 60 files / 250KB each / common
+        source extensions, so it stays fast on small-to-medium codebases. This is a pattern-based heuristic scanner (regex rules for
+        secrets, CORS, injection, XSS, weak crypto, etc.) — good for a fast first pass, not a replacement for CodeQL/Semgrep on anything you'd ship.
+      </div>
+      <div class="scan-log" id="scan-log"></div>
+      <div class="scan-error" id="scan-error"></div>
+    </div>
+  </section>
+
+  <div class="security-banner" id="security-banner"></div>
+
+  <!-- CHARTS -->
+  <section>
+    <div class="sec-title">results at a glance</div>
+    <div class="charts-grid">
+      <div class="chart">
+        <h3 id="sev-chart-title">Severity distribution</h3>
+        <div id="sev-chart-bars"></div>
+        <div class="note" id="sev-chart-note"></div>
+      </div>
+      <div class="chart">
+        <h3 id="cat-chart-title">Findings by category</h3>
+        <div id="cat-chart-bars"></div>
+        <div class="note" id="cat-chart-note"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="summary-grid" id="summary-grid"></div>
+
+  <div class="repos" id="repos"></div>
+
+  <!-- FILTERS + ISSUES -->
+  <section>
+    <div class="sec-title">detailed issues — click to expand</div>
+    <div class="filters" id="filters"></div>
+    <div id="issues"></div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section>
+    <div class="sec-title">suggested fix order</div>
+    <div class="roadmap" id="roadmap"></div>
+  </section>
+
+  <!-- LEGEND -->
+  <section>
+    <div class="sec-title">legend — new to this? start here</div>
+    <div class="info-card legend-grid">
+      <div>
+        <div style="font-family:var(--term);font-size:12px;color:var(--text);margin-bottom:10px;letter-spacing:.05em">SEVERITY</div>
+        <ul class="legend-list">
+          <li><span class="swatch" style="background:var(--red)"></span><span><strong>Critical</strong> — actively exploitable right now (e.g. a real secret key, an open CORS wildcard). Fix before doing anything else.</span></li>
+          <li><span class="swatch" style="background:var(--orange)"></span><span><strong>High</strong> — a serious bug or vulnerability (e.g. SQL/shell injection). Fix soon, before shipping.</span></li>
+          <li><span class="swatch" style="background:var(--yellow)"></span><span><strong>Medium</strong> — a real issue, but lower urgency (e.g. debug mode left on).</span></li>
+          <li><span class="swatch" style="background:var(--cyan)"></span><span><strong>Low / Info</strong> — worth knowing, rarely urgent on its own (e.g. weak hash used somewhere non-critical).</span></li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-family:var(--term);font-size:12px;color:var(--text);margin-bottom:10px;letter-spacing:.05em">CATEGORIES</div>
+        <ul class="legend-list">
+          <li><span class="swatch" style="background:var(--red)"></span><span><strong>secrets</strong> — API keys, tokens, passwords, private key files committed to source.</span></li>
+          <li><span class="swatch" style="background:var(--pink)"></span><span><strong>security</strong> — misconfiguration like an open CORS policy.</span></li>
+          <li><span class="swatch" style="background:var(--orange)"></span><span><strong>injection</strong> — user input reaching a shell command, SQL query, or <code>eval</code>.</span></li>
+          <li><span class="swatch" style="background:var(--cyan)"></span><span><strong>xss</strong> — unescaped content written into the page (cross-site scripting).</span></li>
+          <li><span class="swatch" style="background:var(--yellow)"></span><span><strong>crypto</strong> — weak hashing or insecure randomness.</span></li>
+          <li><span class="swatch" style="background:var(--text-dim)"></span><span><strong>config / network / doc</strong> — debug flags, plaintext HTTP, leftover TODOs.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    BLACKZ CRACK FINDER — an open-source pattern scanner · <a href="mailto:kevinklubeck@gmail.com">kevinklubeck@gmail.com</a> · <a href="https://shadow-lancer.com" target="_blank" rel="noopener">shadow-lancer.com</a>
+    <br>Session uptime: <span id="uptime">0s</span> · only scan code you own or are authorized to review.
+  </footer>
+</div>
+
+<script src="scanner.js"></script>
+<script>
+/* =====================================================================
+   MATRIX RAIN
+===================================================================== */
+(function matrixRain() {
+  const canvas = document.getElementById("matrix-rain");
+  const ctx = canvas.getContext("2d");
+  let w, h, cols, drops;
+  const chars = "01アイウエオカキクケコサシスセソABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&";
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    cols = Math.floor(w / 16);
+    drops = new Array(cols).fill(0).map(() => Math.random() * -50);
+  }
+  function draw() {
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#00ff66";
+    ctx.font = "14px monospace";
+    for (let i = 0; i < cols; i++) {
+      const text = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(text, i * 16, drops[i] * 16);
+      if (drops[i] * 16 > h && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+  resize();
+  window.addEventListener("resize", resize);
+  setInterval(draw, 55);
+})();
+
+/* =====================================================================
+   TICKER + UPTIME
+===================================================================== */
+const TICKER_MSGS = [
+  "rule engine loaded: 13 detectors online",
+  "watching for allow_origins=[\"*\"] patterns...",
+  "grepping for eval(), exec(), shell_exec(), pickle.loads()...",
+  "checking for AKIA... / sk_live_... / ghp_... key patterns...",
+  "waiting for input above — paste, upload, or point at a repo",
+  "GitHub scans use api.github.com + raw.githubusercontent.com directly",
+  "nothing you scan leaves this browser tab",
+  "rate-limit budget: 60/hr unauthenticated (github api)",
+  "scan cap: 60 files / 250KB each",
+  "every finding shows its real file:line — check it yourself",
+  "heuristic scanner: fast first pass, not a full SAST replacement",
+  "session uptime ticking up...",
+  "tail -f /var/log/curiosity.log",
+];
+let tickerIdx = 0;
+const tickerEl = document.getElementById("ticker");
+function tick() { tickerEl.textContent = TICKER_MSGS[tickerIdx % TICKER_MSGS.length]; tickerIdx++; }
+tick();
+setInterval(tick, 3500);
+
+const startTime = Date.now();
+setInterval(() => {
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  const m = Math.floor(s / 60), sec = s % 60;
+  document.getElementById("uptime").textContent = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}, 1000);
+
+/* =====================================================================
+   SCAN LOG UI HELPERS
+===================================================================== */
+const scanLogEl = document.getElementById("scan-log");
+const scanErrorEl = document.getElementById("scan-error");
+function scanLog(msg, cls) {
+  scanLogEl.classList.add("show");
+  const line = document.createElement("div");
+  line.className = "ln" + (cls ? " " + cls : "");
+  line.textContent = "$ " + msg;
+  scanLogEl.appendChild(line);
+  scanLogEl.scrollTop = scanLogEl.scrollHeight;
+}
+function scanLogReset() { scanLogEl.innerHTML = ""; scanLogEl.classList.remove("show"); scanErrorEl.classList.remove("show"); scanErrorEl.textContent = ""; }
+function scanErrorShow(msg) { scanErrorEl.textContent = "✗ " + msg; scanErrorEl.classList.add("show"); }
+function setButtonsDisabled(disabled) {
+  document.getElementById("gh-scan-btn").disabled = disabled;
+  document.getElementById("paste-scan-btn").disabled = disabled;
+  document.getElementById("upload-scan-btn").disabled = disabled;
+}
+
+/* =====================================================================
+   CURRENT SCAN STATE + RENDERING
+   (single always-live model — no hardcoded/saved dataset. Before the
+   first scan, `current` is empty and every section shows an honest
+   empty state instead of fabricated content.)
+===================================================================== */
+const current = {
+  issues: [],
+  repoCards: [],
+  targetLabel: null,
+  secretsNote: `No scan has been run yet. Use the panel above to scan a GitHub repo, pasted code, or uploaded files — results below are always from a real, just-completed scan.`,
+};
+
+function computeCounts(issues) {
+  return {
+    critical: issues.filter(i => i.sev === "critical").length,
+    high: issues.filter(i => i.sev === "high").length,
+    medium: issues.filter(i => i.sev === "medium").length,
+    low: issues.filter(i => i.sev === "low" || i.sev === "info").length,
+    total: issues.length,
+  };
+}
+
+function renderSecurityBanner() {
+  const el = document.getElementById("security-banner");
+  const hasScanned = current.targetLabel !== null;
+  const hasSecretFinding = current.issues.some(i => i.cat === "secrets");
+  el.classList.toggle("bad", hasScanned && hasSecretFinding);
+  el.classList.toggle("neutral", !hasScanned);
+  const heading = !hasScanned ? "⏳ No scan yet" : (hasSecretFinding ? "🔴 Secret scan: findings" : "🛡️ Secret scan: clean");
+  el.innerHTML = `<h3>${heading}</h3><p>${current.secretsNote}</p>`;
+}
+
+function renderStatusChips() {
+  const c = computeCounts(current.issues);
+  document.getElementById("chip-crit").textContent = `${c.critical} critical`;
+  document.getElementById("chip-high").textContent = `${c.high} high`;
+  document.getElementById("chip-med").textContent = `${c.medium} medium`;
+  const hasSecrets = current.issues.some(i => i.cat === "secrets");
+  document.getElementById("chip-secrets").textContent = current.targetLabel === null ? "secrets: —" : `secrets: ${hasSecrets ? "found" : "clean"}`;
+}
+
+function renderSummary() {
+  const c = computeCounts(current.issues);
+  document.getElementById("summary-grid").innerHTML = `
+    <div class="stat red"><div class="num">${c.critical}</div><div class="label">Critical</div></div>
+    <div class="stat orange"><div class="num">${c.high}</div><div class="label">High</div></div>
+    <div class="stat yellow"><div class="num">${c.medium}</div><div class="label">Medium</div></div>
+    <div class="stat cyan"><div class="num">${c.low}</div><div class="label">Low / info</div></div>`;
+}
+
+function renderSevChart() {
+  const c = computeCounts(current.issues);
+  if (!c.total) {
+    document.getElementById("sev-chart-bars").innerHTML = `<div class="chart-empty">No findings yet — run a scan above.</div>`;
+    document.getElementById("sev-chart-note").textContent = "";
+    return;
+  }
+  const max = Math.max(c.critical, c.high, c.medium, c.low, 1);
+  const rows = [
+    ["🔴 Critical", c.critical, "var(--red)"],
+    ["🟠 High", c.high, "var(--orange)"],
+    ["🟡 Medium", c.medium, "var(--yellow)"],
+    ["🔵 Low/Info", c.low, "var(--cyan)"],
+  ];
+  document.getElementById("sev-chart-bars").innerHTML = rows.map(([label, n, color]) => `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(n / max * 100).toFixed(0)}%;background:${color}"></div></div>
+      <div class="bar-count">${n}</div>
+    </div>`).join("");
+  document.getElementById("sev-chart-note").innerHTML = `Total: <strong>${c.total} finding(s)</strong> in <code>${escapeHtml(current.targetLabel || "")}</code>.`;
+}
+
+const CAT_PALETTE = ["var(--red)", "var(--pink)", "var(--orange)", "var(--cyan)", "var(--yellow)", "var(--green)", "var(--green-dim)", "var(--text-dim)"];
+function renderCatChart() {
+  const el = document.getElementById("cat-chart-bars");
+  if (!current.issues.length) {
+    el.innerHTML = `<div class="chart-empty">No findings yet — run a scan above.</div>`;
+    document.getElementById("cat-chart-note").textContent = "";
+    return;
+  }
+  const counts = {};
+  for (const i of current.issues) counts[i.cat] = (counts[i.cat] || 0) + 1;
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(...entries.map(e => e[1]), 1);
+  el.innerHTML = entries.map(([cat, n], idx) => `
+    <div class="bar-row">
+      <div class="bar-label">${escapeHtml(cat)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(n / max * 100).toFixed(0)}%;background:${CAT_PALETTE[idx % CAT_PALETTE.length]}"></div></div>
+      <div class="bar-count">${n}</div>
+    </div>`).join("");
+  document.getElementById("cat-chart-note").textContent = `${entries.length} distinct categor${entries.length === 1 ? "y" : "ies"} found.`;
+}
+
+function renderRepoCards() {
+  const el = document.getElementById("repos");
+  if (!current.repoCards.length) { el.innerHTML = `<div class="repo-empty">No scan target yet — scan a repo, paste, or upload above.</div>`; return; }
+  el.innerHTML = current.repoCards.map(r => `
+    <div class="repo">
+      <div class="repo-name">${escapeHtml(r.name)} <span class="lang">${escapeHtml(r.lang)}</span></div>
+      <div class="repo-url">${escapeHtml(r.url)}</div>
+    </div>`).join("");
+}
+
+function renderFilters() {
+  const c = computeCounts(current.issues);
+  const catGroups = {};
+  for (const i of current.issues) { if (!catGroups[i.cat]) catGroups[i.cat] = { key: i.cat, label: i.cat, count: 0 }; catGroups[i.cat].count++; }
+  const pills = [
+    { key: "all", label: "All", count: current.issues.length },
+    { key: "critical", label: "🔴 Critical", count: c.critical },
+    { key: "high", label: "🟠 High", count: c.high },
+    { key: "medium", label: "🟡 Medium", count: c.medium },
+    { key: "low", label: "🔵 Low", count: c.low },
+    ...Object.values(catGroups),
+  ];
+  const el = document.getElementById("filters");
+  if (!current.issues.length) { el.innerHTML = ""; renderIssues("all"); return; }
+  el.innerHTML = pills.map((p, idx) => `<div class="pill${idx === 0 ? " active" : ""}" data-filter="${escapeHtml(p.key)}" role="button" tabindex="0" aria-pressed="${idx === 0}">${escapeHtml(p.label)} <span class="count">${p.count}</span></div>`).join("");
+  function activatePill(p) {
+    el.querySelectorAll(".pill").forEach(x => { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
+    p.classList.add("active");
+    p.setAttribute("aria-pressed", "true");
+    renderIssues(p.dataset.filter);
+  }
+  el.querySelectorAll(".pill").forEach(p => {
+    p.addEventListener("click", () => activatePill(p));
+    p.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activatePill(p); } });
+  });
+}
+
+const sevLabel = { critical: "🔴 Critical", high: "🟠 High", medium: "🟡 Medium", low: "🔵 Low", info: "🟢 Info" };
+const sevClass = { critical: "sev-critical", high: "sev-high", medium: "sev-medium", low: "sev-low", info: "sev-info" };
+
+function renderIssues(filter) {
+  filter = filter || "all";
+  const issuesEl = document.getElementById("issues");
+  if (!current.issues.length) {
+    issuesEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint)">No scan yet. Paste code, upload files, or scan a public GitHub repo above to see real findings here.</div>`;
+    return;
+  }
+  const filtered = filter === "all" ? current.issues : current.issues.filter(i => i.sev === filter || i.cat === filter);
+  issuesEl.innerHTML = "";
+  if (!filtered.length) { issuesEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint)">No issues match this filter.</div>`; return; }
+  for (const i of filtered) {
+    const div = document.createElement("div");
+    div.className = "issue"; div.dataset.sev = i.sev; div.dataset.cat = i.cat;
+    const fixHtml = i.fixCode ? `<div class="code-block"><div class="code-block-header good">✅ Fix</div><pre>${i.fixCode}</pre></div>` : "";
+    const locTag = i.file ? `<span class="tag loc">${escapeHtml(i.file)}${i.line ? ":" + i.line : ""}</span>` : "";
+    div.innerHTML = `
+      <div class="issue-head" role="button" tabindex="0" aria-expanded="false">
+        <span class="issue-sev ${sevClass[i.sev]}">${sevLabel[i.sev]}</span>
+        <div class="issue-title">${i.title}</div>
+        <div class="issue-tags"><span class="tag cat">${escapeHtml(i.cat)}</span>${locTag}</div>
+        <div class="chevron">▶</div>
+      </div>
+      <div class="issue-body">
+        <div class="explainer">
+          <div class="explainer-label">What</div><div class="explainer-text">${i.what}</div>
+          <div class="explainer-label">Why</div><div class="explainer-text">${i.why}</div>
+          ${i.impact ? `<div class="explainer-label">Impact</div><div class="explainer-text">${i.impact}</div>` : ""}
+        </div>
+        ${fixHtml}
+      </div>`;
+    const head = div.querySelector(".issue-head");
+    function toggleIssue() {
+      div.classList.toggle("open");
+      head.setAttribute("aria-expanded", div.classList.contains("open") ? "true" : "false");
+    }
+    head.addEventListener("click", toggleIssue);
+    head.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleIssue(); } });
+    issuesEl.appendChild(div);
+  }
+}
+
+function renderRoadmap() {
+  const el = document.getElementById("roadmap");
+  if (!current.issues.length) {
+    el.innerHTML = ["ship", "soon", "later"].map((cls, i) => `
+      <div class="phase ${cls}">
+        <h3><span class="phase-num">${["P0", "P1", "P2"][i]}</span> ${["Ship today", "This week", "When you have time"][i]}</h3>
+        <div class="est">Run a scan to populate this</div>
+        <ul><li style="color:var(--text-faint)">— no scan yet —</li></ul>
+      </div>`).join("");
+    return;
+  }
+  const strip = s => String(s).replace(/<[^>]+>/g, "");
+  const rm = {
+    ship: current.issues.filter(i => i.sev === "critical").map(i => strip(i.title)),
+    soon: current.issues.filter(i => i.sev === "high").map(i => strip(i.title)),
+    later: current.issues.filter(i => i.sev === "medium" || i.sev === "low" || i.sev === "info").map(i => strip(i.title)),
+  };
+  const phase = (cls, num, title, est, items) => `
+    <div class="phase ${cls}">
+      <h3><span class="phase-num">${num}</span> ${title}</h3>
+      <div class="est">${est}</div>
+      <ul>${items.length ? items.map(t => `<li>${escapeHtml(t)}</li>`).join("") : '<li style="color:var(--text-faint)">— none —</li>'}</ul>
+    </div>`;
+  el.innerHTML = phase("ship", "P0", "Fix first", "Critical severity", rm.ship)
+    + phase("soon", "P1", "Fix soon", "High severity", rm.soon)
+    + phase("later", "P2", "When you have time", "Medium / low / info", rm.later);
+}
+
+function renderAll() {
+  renderSecurityBanner(); renderStatusChips(); renderSummary(); renderSevChart(); renderCatChart(); renderRepoCards(); renderFilters(); renderIssues("all"); renderRoadmap();
+  setTimeout(() => document.querySelectorAll(".issue").forEach(el => {
+    if (el.dataset.sev === "critical" || el.dataset.sev === "high") {
+      el.classList.add("open");
+      const head = el.querySelector(".issue-head");
+      if (head) head.setAttribute("aria-expanded", "true");
+    }
+  }), 30);
+}
+
+/* =====================================================================
+   SCAN TAB SWITCHING
+===================================================================== */
+function activateScanTab(tab) {
+  document.querySelectorAll(".scan-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+  document.querySelectorAll(".scan-panel").forEach(p => p.classList.remove("active"));
+  tab.classList.add("active");
+  tab.setAttribute("aria-selected", "true");
+  document.querySelector(`.scan-panel[data-panel="${tab.dataset.mode}"]`).classList.add("active");
+}
+document.querySelectorAll(".scan-tab").forEach(tab => {
+  tab.addEventListener("click", () => activateScanTab(tab));
+  tab.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateScanTab(tab); } });
+});
+document.getElementById("upload-files").addEventListener("change", (e) => {
+  const names = Array.from(e.target.files).map(f => f.name);
+  document.getElementById("upload-file-list").textContent = names.length ? `${names.length} file(s): ${names.join(", ")}` : "";
+});
+
+/* =====================================================================
+   SCAN ACTIONS
+===================================================================== */
+function finalizeScan(findings, targetLabel, repoCard) {
+  current.issues = findings;
+  current.repoCards = repoCard ? [repoCard] : [];
+  current.targetLabel = targetLabel;
+  const secretCount = findings.filter(i => i.cat === "secrets").length;
+  current.secretsNote = secretCount
+    ? `${secretCount} potential secret/credential finding(s) in <strong>${escapeHtml(targetLabel)}</strong> — expand the "secrets" issues below.`
+    : `No hardcoded secrets, keys, or credentials matched in <strong>${escapeHtml(targetLabel)}</strong>. Heuristic scan — not a guarantee.`;
+  renderAll();
+  document.getElementById("security-banner").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("gh-scan-btn").addEventListener("click", async () => {
+  scanLogReset();
+  setButtonsDisabled(true);
+  try {
+    const { owner, repo } = parseRepoInput(document.getElementById("gh-repo").value);
+    scanLog(`resolving ${owner}/${repo} ...`);
+    const meta = await fetchRepoMeta(owner, repo);
+    const branch = document.getElementById("gh-branch").value.trim() || meta.default_branch;
+    scanLog(`default branch: ${branch}`, "ok");
+    scanLog(`listing files ...`);
+    const { tree, truncated } = await fetchTree(owner, repo, branch);
+    if (truncated) scanLog("repo tree truncated by GitHub API — scanning a subset", "err");
+    const files = pickFiles(tree);
+    scanLog(`${tree.length} entries found, ${files.length} candidate file(s) selected (cap: 60 files / 250KB each)`);
+    if (!files.length) throw new Error("No scannable files found (check the repo isn't empty and uses common source extensions)");
+    scanLog(`fetching ${files.length} file(s) from raw.githubusercontent.com ...`);
+    let done = 0;
+    const contents = await mapLimit(files, 6, async (f) => {
+      const text = await fetchRaw(owner, repo, branch, f.path);
+      done++;
+      if (done % 10 === 0) scanLog(`fetched ${done}/${files.length} ...`);
+      return { path: f.path, text };
+    });
+    scanLog(`running rule engine on ${contents.filter(Boolean).length} file(s) ...`);
+    let findings = [];
+    for (const c of contents) { if (c) findings = findings.concat(scanFileContent(c.path, c.text)); }
+    scanLog(`done — ${findings.length} finding(s)`, "ok");
+    finalizeScan(findings, `${owner}/${repo}@${branch}`, { name: `🛰 ${owner}/${repo}`, lang: `branch: ${branch}`, url: `github.com/${owner}/${repo} · ${files.length} files scanned` });
+  } catch (e) {
+    scanLog(e.message, "err");
+    scanErrorShow(e.message);
+  } finally { setButtonsDisabled(false); }
+});
+
+document.getElementById("paste-scan-btn").addEventListener("click", () => {
+  scanLogReset();
+  const code = document.getElementById("paste-code").value;
+  const name = document.getElementById("paste-name").value.trim() || "pasted-snippet.txt";
+  if (!code.trim()) { scanErrorShow("Paste some code first."); return; }
+  scanLog(`scanning pasted content as ${name} ...`);
+  const findings = scanFileContent(name, code);
+  scanLog(`done — ${findings.length} finding(s)`, "ok");
+  finalizeScan(findings, name, { name: `📄 ${name}`, lang: "pasted", url: `${code.split("\n").length} lines` });
+});
+
+document.getElementById("upload-scan-btn").addEventListener("click", async () => {
+  scanLogReset();
+  const input = document.getElementById("upload-files");
+  const files = Array.from(input.files || []);
+  if (!files.length) { scanErrorShow("Choose one or more files first."); return; }
+  setButtonsDisabled(true);
+  try {
+    scanLog(`reading ${files.length} file(s) ...`);
+    const texts = await Promise.all(files.map(f => f.text()));
+    let findings = [];
+    files.forEach((f, idx) => { findings = findings.concat(scanFileContent(f.name, texts[idx])); });
+    scanLog(`done — ${findings.length} finding(s)`, "ok");
+    finalizeScan(findings, `${files.length} uploaded file(s)`, { name: `📁 ${files.length} uploaded file(s)`, lang: "local upload", url: files.map(f => f.name).join(", ").slice(0, 120) });
+  } catch (e) { scanLog(e.message, "err"); scanErrorShow(e.message); } finally { setButtonsDisabled(false); }
+});
+
+/* Init */
+renderAll();
+</script>
+</body>
+</html>
