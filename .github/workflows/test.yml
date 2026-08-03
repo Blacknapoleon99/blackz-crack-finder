@@ -14,19 +14,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Syntax check scanner.js and index.html's inline scripts
+
+      - name: Syntax check every shipped script
         run: |
           node --check scanner.js
-          node -e "
-            const fs = require('fs');
-            const html = fs.readFileSync('index.html', 'utf8');
-            const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-            const vm = require('vm');
-            scripts.forEach((s, i) => {
-              fs.writeFileSync('/tmp/inline_' + i + '.js', s);
-            });
-            console.log('extracted', scripts.length, 'inline script blocks');
-          "
-          for f in /tmp/inline_*.js; do node --check "$f"; done
-      - name: Run scanner regression tests (includes real DVWA fixtures)
+          node --check app.js
+          node --check assets/portrait.js
+
+      - name: Rule-engine regression tests (includes real DVWA fixtures)
         run: node tests/scanner.test.js
+
+      - name: UI smoke test (drives all 3 scan modes against a DOM stub)
+        run: node tests/ui.smoke.js
+
+      - name: No runtime dependencies, ever
+        run: |
+          test ! -f package.json || { echo "package.json appeared — this project must stay dependency-free"; exit 1; }
+          test ! -d node_modules || { echo "node_modules appeared"; exit 1; }

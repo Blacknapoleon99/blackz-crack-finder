@@ -1,0 +1,24 @@
+# Cloudflare Pages / Netlify custom response headers.
+#
+# index.html already ships the same Content-Security-Policy as a <meta> tag so
+# the protection survives on any host (including GitHub Pages, which cannot set
+# custom headers). Served from Cloudflare Pages, these become REAL response
+# headers, which is strictly stronger: a meta CSP can't express frame-ancestors
+# or HSTS, and it only applies once the parser reaches it.
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+
+# Fingerprint-free filenames, so HTML must always be revalidated while the
+# static assets can be cached hard for a day.
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/*.js
+  Cache-Control: public, max-age=86400
