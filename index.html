@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BLACKZ CRACK FINDER — scan any public repo, pasted code, or uploaded files</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -264,6 +266,98 @@
     outline: 2px solid var(--green);
     outline-offset: 2px;
   }
+
+  /* ================= TERMINAL STAGE: ghost portrait + background FX ================= */
+  header { position: relative; overflow: hidden; isolation: isolate; }
+  header > *:not(.term-fx):not(.ghost) { position: relative; z-index: 2; }
+
+  /* layered background inside the terminal window */
+  .term-fx { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .term-fx.grid {
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,255,102,0.055) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(90deg, rgba(0,255,102,0.055) 0 1px, transparent 1px 34px);
+    mask-image: radial-gradient(ellipse 70% 90% at 30% 40%, #000 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 90% at 30% 40%, #000 30%, transparent 100%);
+  }
+  .term-fx.glow { background: radial-gradient(ellipse 60% 70% at 78% 45%, rgba(0,255,102,0.10), transparent 70%); }
+  .term-fx.sweep {
+    background: linear-gradient(180deg, transparent 0%, rgba(0,255,102,0.16) 48%, rgba(200,255,216,0.10) 50%, rgba(0,255,102,0.16) 52%, transparent 100%);
+    height: 26%; will-change: transform; animation: sweep 7.5s linear infinite;
+  }
+  @keyframes sweep { 0% { transform: translateY(-120%); } 100% { transform: translateY(520%); } }
+
+  /* operator portrait — grayscale, low opacity, flickers like a CRT ghost */
+  .ghost {
+    position: absolute; z-index: 1; right: 26px; top: 50%; transform: translateY(-50%);
+    width: 190px; height: 190px; object-fit: cover; border-radius: 4px; pointer-events: none;
+    filter: grayscale(1) contrast(1.5) brightness(0.85);
+    mix-blend-mode: screen; opacity: 0.16;
+    mask-image: radial-gradient(ellipse 62% 62% at 50% 45%, #000 45%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 62% 62% at 50% 45%, #000 45%, transparent 78%);
+    animation: ghostFlash 9s infinite steps(1, end);
+    will-change: opacity;
+  }
+  @keyframes ghostFlash {
+    0%, 40% { opacity: 0.10; }
+    41% { opacity: 0.34; } 42% { opacity: 0.06; } 43% { opacity: 0.30; }
+    44%, 71% { opacity: 0.13; }
+    72% { opacity: 0.40; } 73% { opacity: 0.09; } 74% { opacity: 0.26; }
+    75%, 100% { opacity: 0.11; }
+  }
+  @media (max-width: 820px) { .ghost { display: none; } }
+  /* respect reduced-motion for every decorative animation */
+  @media (prefers-reduced-motion: reduce) {
+    .ghost, .term-fx.sweep, .crt-flicker, h1.glitch::before, h1.glitch::after, .cursor { animation: none !important; }
+    .ghost { opacity: 0.12; }
+  }
+
+  /* ================= LIVE PIPELINE (visual timer + per-step status) ================= */
+  .live-panel { display: none; margin-top: 14px; border: 1px solid var(--border-bright); border-radius: 4px; background: var(--bg); overflow: hidden; }
+  .live-panel.show { display: block; }
+  .live-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+    font-family: var(--term); font-size: 12px; color: var(--text-dim);
+  }
+  .live-head .elapsed { margin-left: auto; font-size: 15px; color: var(--green); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .live-head .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1.1s ease-in-out infinite; }
+  .live-head.done .live-dot { animation: none; }
+  .live-head.failed .live-dot { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.75); } }
+  .pipeline { padding: 12px 14px; display: grid; gap: 2px; }
+  .pl-step { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px; padding: 5px 0; font-size: 12.5px; color: var(--text-faint); font-family: var(--term); }
+  .pl-step .pl-icon { text-align: center; }
+  .pl-step[data-state="run"] { color: var(--text); }
+  .pl-step[data-state="run"] .pl-icon { color: var(--green); animation: pulse 1s ease-in-out infinite; }
+  .pl-step[data-state="ok"] { color: var(--text-dim); }
+  .pl-step[data-state="ok"] .pl-icon { color: var(--green); }
+  .pl-step[data-state="err"] { color: var(--red); }
+  .pl-step .pl-time { font-variant-numeric: tabular-nums; color: var(--text-faint); font-size: 11px; }
+  .pl-step .pl-detail { color: var(--text-faint); font-size: 11px; display: block; }
+  .pl-bar { height: 3px; background: var(--surface-2); }
+  .pl-bar > div { height: 100%; width: 0; background: var(--green); transition: width .35s ease; }
+
+  /* ================= NETWORK TRACE (the real request + real response) ================= */
+  .net-trace { border-top: 1px solid var(--border); }
+  .net-trace-title { padding: 8px 14px; font-family: var(--term); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--green-dim); background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .net-list { max-height: 300px; overflow-y: auto; }
+  .net-item { border-bottom: 1px solid var(--border); font-size: 11.5px; }
+  .net-item:last-child { border-bottom: none; }
+  .net-req { padding: 8px 14px 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-family: var(--mono); }
+  .net-req .verb { color: var(--cyan); font-weight: 700; flex-shrink: 0; }
+  .net-req .url { color: var(--text-dim); word-break: break-all; flex: 1; min-width: 180px; }
+  .net-req .status { font-family: var(--term); font-weight: 700; }
+  .net-req .status.ok { color: var(--green); } .net-req .status.bad { color: var(--red); }
+  .net-req .ms { color: var(--text-faint); font-family: var(--term); font-variant-numeric: tabular-nums; }
+  .net-res { margin: 0 14px 10px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; color: var(--text-faint); font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; max-height: 92px; overflow: hidden; }
+  .net-empty { padding: 14px; color: var(--text-faint); font-size: 12px; font-style: italic; }
+
+  /* ================= CACHE / STORAGE NOTICE ================= */
+  .cache-bar { display: none; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; padding: 10px 14px; border: 1px dashed var(--border-bright); border-radius: 4px; font-size: 12px; color: var(--text-dim); font-family: var(--term); }
+  .cache-bar.show { display: flex; }
+  .cache-bar button { margin-left: auto; background: transparent; border: 1px solid var(--border-bright); color: var(--text-dim); font-family: var(--term); font-size: 11px; padding: 5px 11px; border-radius: 3px; cursor: pointer; }
+  .cache-bar button:hover { color: var(--red); border-color: var(--red); }
 </style>
 </head>
 <body>
@@ -280,6 +374,10 @@
   </div>
 
   <header>
+    <div class="term-fx grid" aria-hidden="true"></div>
+    <div class="term-fx glow" aria-hidden="true"></div>
+    <div class="term-fx sweep" aria-hidden="true"></div>
+    <img class="ghost" id="ghost-portrait" alt="" aria-hidden="true" decoding="async">
     <pre class="ascii-art" aria-hidden="true"><span class="ascii-green">████  █      ███   ████ █   █ █████
 █   █ █     █   █ █     █  █     █
 ████  █     █████ █     ███     █
@@ -320,7 +418,12 @@
           rule is generic pattern-matching applied fresh to whatever you just gave it.</li>
         <li><strong>Every result shows its receipts</strong> — the exact file, line number, and matched snippet, so you
           can go check it yourself in the real source. If a card doesn't show a real <code>file:line</code>, it isn't
-          from a live scan.</li>
+          from a live scan. The <em>network trace</em> panel above prints the literal URL, HTTP status, timing, and the
+          first bytes of GitHub's actual response, so you can watch the data arrive instead of trusting a summary.</li>
+        <li><strong>Nothing is stored on a server, because there is no server.</strong> Your last scan is kept only in
+          <code>localStorage</code> — on your own machine, in this browser — for <strong>24 hours</strong>, purely so a
+          refresh doesn't lose your results. It never syncs anywhere, and you can wipe it any time with the
+          <em>Clear cached scan</em> button.</li>
       </ol>
     </div>
   </section>
@@ -365,11 +468,27 @@
         source extensions, so it stays fast on small-to-medium codebases. This is a pattern-based heuristic scanner (regex rules for
         secrets, CORS, injection, XSS, weak crypto, etc.) — good for a fast first pass, not a replacement for CodeQL/Semgrep on anything you'd ship.
       </div>
+      <!-- LIVE PIPELINE: every step, its state, and how long it actually took -->
+      <div class="live-panel" id="live-panel">
+        <div class="live-head" id="live-head">
+          <span class="live-dot"></span>
+          <span id="live-label">idle</span>
+          <span class="elapsed" id="live-elapsed">0.00s</span>
+        </div>
+        <div class="pl-bar"><div id="pl-bar-fill"></div></div>
+        <div class="pipeline" id="pipeline"></div>
+        <div class="net-trace">
+          <div class="net-trace-title">network trace — the literal requests this page made</div>
+          <div class="net-list" id="net-list"><div class="net-empty">No requests yet. GitHub scans appear here with the exact URL, HTTP status, timing, and the first bytes of the real response. Paste/upload scans make zero requests — nothing to show, by design.</div></div>
+        </div>
+      </div>
+
       <div class="scan-log" id="scan-log"></div>
       <div class="scan-error" id="scan-error"></div>
     </div>
   </section>
 
+  <div class="cache-bar" id="cache-bar"></div>
   <div class="security-banner" id="security-banner"></div>
 
   <!-- CHARTS -->
@@ -440,402 +559,7 @@
 </div>
 
 <script src="scanner.js"></script>
-<script>
-/* =====================================================================
-   MATRIX RAIN
-===================================================================== */
-(function matrixRain() {
-  const canvas = document.getElementById("matrix-rain");
-  const ctx = canvas.getContext("2d");
-  let w, h, cols, drops;
-  const chars = "01アイウエオカキクケコサシスセソABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&";
-  function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-    cols = Math.floor(w / 16);
-    drops = new Array(cols).fill(0).map(() => Math.random() * -50);
-  }
-  function draw() {
-    ctx.fillStyle = "rgba(0,0,0,0.08)";
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#00ff66";
-    ctx.font = "14px monospace";
-    for (let i = 0; i < cols; i++) {
-      const text = chars[Math.floor(Math.random() * chars.length)];
-      ctx.fillText(text, i * 16, drops[i] * 16);
-      if (drops[i] * 16 > h && Math.random() > 0.975) drops[i] = 0;
-      drops[i]++;
-    }
-  }
-  resize();
-  window.addEventListener("resize", resize);
-  setInterval(draw, 55);
-})();
-
-/* =====================================================================
-   TICKER + UPTIME
-===================================================================== */
-const TICKER_MSGS = [
-  "rule engine loaded: 13 detectors online",
-  "watching for allow_origins=[\"*\"] patterns...",
-  "grepping for eval(), exec(), shell_exec(), pickle.loads()...",
-  "checking for AKIA... / sk_live_... / ghp_... key patterns...",
-  "waiting for input above — paste, upload, or point at a repo",
-  "GitHub scans use api.github.com + raw.githubusercontent.com directly",
-  "nothing you scan leaves this browser tab",
-  "rate-limit budget: 60/hr unauthenticated (github api)",
-  "scan cap: 60 files / 250KB each",
-  "every finding shows its real file:line — check it yourself",
-  "heuristic scanner: fast first pass, not a full SAST replacement",
-  "session uptime ticking up...",
-  "tail -f /var/log/curiosity.log",
-];
-let tickerIdx = 0;
-const tickerEl = document.getElementById("ticker");
-function tick() { tickerEl.textContent = TICKER_MSGS[tickerIdx % TICKER_MSGS.length]; tickerIdx++; }
-tick();
-setInterval(tick, 3500);
-
-const startTime = Date.now();
-setInterval(() => {
-  const s = Math.floor((Date.now() - startTime) / 1000);
-  const m = Math.floor(s / 60), sec = s % 60;
-  document.getElementById("uptime").textContent = m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-}, 1000);
-
-/* =====================================================================
-   SCAN LOG UI HELPERS
-===================================================================== */
-const scanLogEl = document.getElementById("scan-log");
-const scanErrorEl = document.getElementById("scan-error");
-function scanLog(msg, cls) {
-  scanLogEl.classList.add("show");
-  const line = document.createElement("div");
-  line.className = "ln" + (cls ? " " + cls : "");
-  line.textContent = "$ " + msg;
-  scanLogEl.appendChild(line);
-  scanLogEl.scrollTop = scanLogEl.scrollHeight;
-}
-function scanLogReset() { scanLogEl.innerHTML = ""; scanLogEl.classList.remove("show"); scanErrorEl.classList.remove("show"); scanErrorEl.textContent = ""; }
-function scanErrorShow(msg) { scanErrorEl.textContent = "✗ " + msg; scanErrorEl.classList.add("show"); }
-function setButtonsDisabled(disabled) {
-  document.getElementById("gh-scan-btn").disabled = disabled;
-  document.getElementById("paste-scan-btn").disabled = disabled;
-  document.getElementById("upload-scan-btn").disabled = disabled;
-}
-
-/* =====================================================================
-   CURRENT SCAN STATE + RENDERING
-   (single always-live model — no hardcoded/saved dataset. Before the
-   first scan, `current` is empty and every section shows an honest
-   empty state instead of fabricated content.)
-===================================================================== */
-const current = {
-  issues: [],
-  repoCards: [],
-  targetLabel: null,
-  secretsNote: `No scan has been run yet. Use the panel above to scan a GitHub repo, pasted code, or uploaded files — results below are always from a real, just-completed scan.`,
-};
-
-function computeCounts(issues) {
-  return {
-    critical: issues.filter(i => i.sev === "critical").length,
-    high: issues.filter(i => i.sev === "high").length,
-    medium: issues.filter(i => i.sev === "medium").length,
-    low: issues.filter(i => i.sev === "low" || i.sev === "info").length,
-    total: issues.length,
-  };
-}
-
-function renderSecurityBanner() {
-  const el = document.getElementById("security-banner");
-  const hasScanned = current.targetLabel !== null;
-  const hasSecretFinding = current.issues.some(i => i.cat === "secrets");
-  el.classList.toggle("bad", hasScanned && hasSecretFinding);
-  el.classList.toggle("neutral", !hasScanned);
-  const heading = !hasScanned ? "⏳ No scan yet" : (hasSecretFinding ? "🔴 Secret scan: findings" : "🛡️ Secret scan: clean");
-  el.innerHTML = `<h3>${heading}</h3><p>${current.secretsNote}</p>`;
-}
-
-function renderStatusChips() {
-  const c = computeCounts(current.issues);
-  document.getElementById("chip-crit").textContent = `${c.critical} critical`;
-  document.getElementById("chip-high").textContent = `${c.high} high`;
-  document.getElementById("chip-med").textContent = `${c.medium} medium`;
-  const hasSecrets = current.issues.some(i => i.cat === "secrets");
-  document.getElementById("chip-secrets").textContent = current.targetLabel === null ? "secrets: —" : `secrets: ${hasSecrets ? "found" : "clean"}`;
-}
-
-function renderSummary() {
-  const c = computeCounts(current.issues);
-  document.getElementById("summary-grid").innerHTML = `
-    <div class="stat red"><div class="num">${c.critical}</div><div class="label">Critical</div></div>
-    <div class="stat orange"><div class="num">${c.high}</div><div class="label">High</div></div>
-    <div class="stat yellow"><div class="num">${c.medium}</div><div class="label">Medium</div></div>
-    <div class="stat cyan"><div class="num">${c.low}</div><div class="label">Low / info</div></div>`;
-}
-
-function renderSevChart() {
-  const c = computeCounts(current.issues);
-  if (!c.total) {
-    document.getElementById("sev-chart-bars").innerHTML = `<div class="chart-empty">No findings yet — run a scan above.</div>`;
-    document.getElementById("sev-chart-note").textContent = "";
-    return;
-  }
-  const max = Math.max(c.critical, c.high, c.medium, c.low, 1);
-  const rows = [
-    ["🔴 Critical", c.critical, "var(--red)"],
-    ["🟠 High", c.high, "var(--orange)"],
-    ["🟡 Medium", c.medium, "var(--yellow)"],
-    ["🔵 Low/Info", c.low, "var(--cyan)"],
-  ];
-  document.getElementById("sev-chart-bars").innerHTML = rows.map(([label, n, color]) => `
-    <div class="bar-row">
-      <div class="bar-label">${label}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${(n / max * 100).toFixed(0)}%;background:${color}"></div></div>
-      <div class="bar-count">${n}</div>
-    </div>`).join("");
-  document.getElementById("sev-chart-note").innerHTML = `Total: <strong>${c.total} finding(s)</strong> in <code>${escapeHtml(current.targetLabel || "")}</code>.`;
-}
-
-const CAT_PALETTE = ["var(--red)", "var(--pink)", "var(--orange)", "var(--cyan)", "var(--yellow)", "var(--green)", "var(--green-dim)", "var(--text-dim)"];
-function renderCatChart() {
-  const el = document.getElementById("cat-chart-bars");
-  if (!current.issues.length) {
-    el.innerHTML = `<div class="chart-empty">No findings yet — run a scan above.</div>`;
-    document.getElementById("cat-chart-note").textContent = "";
-    return;
-  }
-  const counts = {};
-  for (const i of current.issues) counts[i.cat] = (counts[i.cat] || 0) + 1;
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(...entries.map(e => e[1]), 1);
-  el.innerHTML = entries.map(([cat, n], idx) => `
-    <div class="bar-row">
-      <div class="bar-label">${escapeHtml(cat)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${(n / max * 100).toFixed(0)}%;background:${CAT_PALETTE[idx % CAT_PALETTE.length]}"></div></div>
-      <div class="bar-count">${n}</div>
-    </div>`).join("");
-  document.getElementById("cat-chart-note").textContent = `${entries.length} distinct categor${entries.length === 1 ? "y" : "ies"} found.`;
-}
-
-function renderRepoCards() {
-  const el = document.getElementById("repos");
-  if (!current.repoCards.length) { el.innerHTML = `<div class="repo-empty">No scan target yet — scan a repo, paste, or upload above.</div>`; return; }
-  el.innerHTML = current.repoCards.map(r => `
-    <div class="repo">
-      <div class="repo-name">${escapeHtml(r.name)} <span class="lang">${escapeHtml(r.lang)}</span></div>
-      <div class="repo-url">${escapeHtml(r.url)}</div>
-    </div>`).join("");
-}
-
-function renderFilters() {
-  const c = computeCounts(current.issues);
-  const catGroups = {};
-  for (const i of current.issues) { if (!catGroups[i.cat]) catGroups[i.cat] = { key: i.cat, label: i.cat, count: 0 }; catGroups[i.cat].count++; }
-  const pills = [
-    { key: "all", label: "All", count: current.issues.length },
-    { key: "critical", label: "🔴 Critical", count: c.critical },
-    { key: "high", label: "🟠 High", count: c.high },
-    { key: "medium", label: "🟡 Medium", count: c.medium },
-    { key: "low", label: "🔵 Low", count: c.low },
-    ...Object.values(catGroups),
-  ];
-  const el = document.getElementById("filters");
-  if (!current.issues.length) { el.innerHTML = ""; renderIssues("all"); return; }
-  el.innerHTML = pills.map((p, idx) => `<div class="pill${idx === 0 ? " active" : ""}" data-filter="${escapeHtml(p.key)}" role="button" tabindex="0" aria-pressed="${idx === 0}">${escapeHtml(p.label)} <span class="count">${p.count}</span></div>`).join("");
-  function activatePill(p) {
-    el.querySelectorAll(".pill").forEach(x => { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
-    p.classList.add("active");
-    p.setAttribute("aria-pressed", "true");
-    renderIssues(p.dataset.filter);
-  }
-  el.querySelectorAll(".pill").forEach(p => {
-    p.addEventListener("click", () => activatePill(p));
-    p.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activatePill(p); } });
-  });
-}
-
-const sevLabel = { critical: "🔴 Critical", high: "🟠 High", medium: "🟡 Medium", low: "🔵 Low", info: "🟢 Info" };
-const sevClass = { critical: "sev-critical", high: "sev-high", medium: "sev-medium", low: "sev-low", info: "sev-info" };
-
-function renderIssues(filter) {
-  filter = filter || "all";
-  const issuesEl = document.getElementById("issues");
-  if (!current.issues.length) {
-    issuesEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint)">No scan yet. Paste code, upload files, or scan a public GitHub repo above to see real findings here.</div>`;
-    return;
-  }
-  const filtered = filter === "all" ? current.issues : current.issues.filter(i => i.sev === filter || i.cat === filter);
-  issuesEl.innerHTML = "";
-  if (!filtered.length) { issuesEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-faint)">No issues match this filter.</div>`; return; }
-  for (const i of filtered) {
-    const div = document.createElement("div");
-    div.className = "issue"; div.dataset.sev = i.sev; div.dataset.cat = i.cat;
-    const fixHtml = i.fixCode ? `<div class="code-block"><div class="code-block-header good">✅ Fix</div><pre>${i.fixCode}</pre></div>` : "";
-    const locTag = i.file ? `<span class="tag loc">${escapeHtml(i.file)}${i.line ? ":" + i.line : ""}</span>` : "";
-    div.innerHTML = `
-      <div class="issue-head" role="button" tabindex="0" aria-expanded="false">
-        <span class="issue-sev ${sevClass[i.sev]}">${sevLabel[i.sev]}</span>
-        <div class="issue-title">${i.title}</div>
-        <div class="issue-tags"><span class="tag cat">${escapeHtml(i.cat)}</span>${locTag}</div>
-        <div class="chevron">▶</div>
-      </div>
-      <div class="issue-body">
-        <div class="explainer">
-          <div class="explainer-label">What</div><div class="explainer-text">${i.what}</div>
-          <div class="explainer-label">Why</div><div class="explainer-text">${i.why}</div>
-          ${i.impact ? `<div class="explainer-label">Impact</div><div class="explainer-text">${i.impact}</div>` : ""}
-        </div>
-        ${fixHtml}
-      </div>`;
-    const head = div.querySelector(".issue-head");
-    function toggleIssue() {
-      div.classList.toggle("open");
-      head.setAttribute("aria-expanded", div.classList.contains("open") ? "true" : "false");
-    }
-    head.addEventListener("click", toggleIssue);
-    head.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleIssue(); } });
-    issuesEl.appendChild(div);
-  }
-}
-
-function renderRoadmap() {
-  const el = document.getElementById("roadmap");
-  if (!current.issues.length) {
-    el.innerHTML = ["ship", "soon", "later"].map((cls, i) => `
-      <div class="phase ${cls}">
-        <h3><span class="phase-num">${["P0", "P1", "P2"][i]}</span> ${["Ship today", "This week", "When you have time"][i]}</h3>
-        <div class="est">Run a scan to populate this</div>
-        <ul><li style="color:var(--text-faint)">— no scan yet —</li></ul>
-      </div>`).join("");
-    return;
-  }
-  const strip = s => String(s).replace(/<[^>]+>/g, "");
-  const rm = {
-    ship: current.issues.filter(i => i.sev === "critical").map(i => strip(i.title)),
-    soon: current.issues.filter(i => i.sev === "high").map(i => strip(i.title)),
-    later: current.issues.filter(i => i.sev === "medium" || i.sev === "low" || i.sev === "info").map(i => strip(i.title)),
-  };
-  const phase = (cls, num, title, est, items) => `
-    <div class="phase ${cls}">
-      <h3><span class="phase-num">${num}</span> ${title}</h3>
-      <div class="est">${est}</div>
-      <ul>${items.length ? items.map(t => `<li>${escapeHtml(t)}</li>`).join("") : '<li style="color:var(--text-faint)">— none —</li>'}</ul>
-    </div>`;
-  el.innerHTML = phase("ship", "P0", "Fix first", "Critical severity", rm.ship)
-    + phase("soon", "P1", "Fix soon", "High severity", rm.soon)
-    + phase("later", "P2", "When you have time", "Medium / low / info", rm.later);
-}
-
-function renderAll() {
-  renderSecurityBanner(); renderStatusChips(); renderSummary(); renderSevChart(); renderCatChart(); renderRepoCards(); renderFilters(); renderIssues("all"); renderRoadmap();
-  setTimeout(() => document.querySelectorAll(".issue").forEach(el => {
-    if (el.dataset.sev === "critical" || el.dataset.sev === "high") {
-      el.classList.add("open");
-      const head = el.querySelector(".issue-head");
-      if (head) head.setAttribute("aria-expanded", "true");
-    }
-  }), 30);
-}
-
-/* =====================================================================
-   SCAN TAB SWITCHING
-===================================================================== */
-function activateScanTab(tab) {
-  document.querySelectorAll(".scan-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
-  document.querySelectorAll(".scan-panel").forEach(p => p.classList.remove("active"));
-  tab.classList.add("active");
-  tab.setAttribute("aria-selected", "true");
-  document.querySelector(`.scan-panel[data-panel="${tab.dataset.mode}"]`).classList.add("active");
-}
-document.querySelectorAll(".scan-tab").forEach(tab => {
-  tab.addEventListener("click", () => activateScanTab(tab));
-  tab.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activateScanTab(tab); } });
-});
-document.getElementById("upload-files").addEventListener("change", (e) => {
-  const names = Array.from(e.target.files).map(f => f.name);
-  document.getElementById("upload-file-list").textContent = names.length ? `${names.length} file(s): ${names.join(", ")}` : "";
-});
-
-/* =====================================================================
-   SCAN ACTIONS
-===================================================================== */
-function finalizeScan(findings, targetLabel, repoCard) {
-  current.issues = findings;
-  current.repoCards = repoCard ? [repoCard] : [];
-  current.targetLabel = targetLabel;
-  const secretCount = findings.filter(i => i.cat === "secrets").length;
-  current.secretsNote = secretCount
-    ? `${secretCount} potential secret/credential finding(s) in <strong>${escapeHtml(targetLabel)}</strong> — expand the "secrets" issues below.`
-    : `No hardcoded secrets, keys, or credentials matched in <strong>${escapeHtml(targetLabel)}</strong>. Heuristic scan — not a guarantee.`;
-  renderAll();
-  document.getElementById("security-banner").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-document.getElementById("gh-scan-btn").addEventListener("click", async () => {
-  scanLogReset();
-  setButtonsDisabled(true);
-  try {
-    const { owner, repo } = parseRepoInput(document.getElementById("gh-repo").value);
-    scanLog(`resolving ${owner}/${repo} ...`);
-    const meta = await fetchRepoMeta(owner, repo);
-    const branch = document.getElementById("gh-branch").value.trim() || meta.default_branch;
-    scanLog(`default branch: ${branch}`, "ok");
-    scanLog(`listing files ...`);
-    const { tree, truncated } = await fetchTree(owner, repo, branch);
-    if (truncated) scanLog("repo tree truncated by GitHub API — scanning a subset", "err");
-    const files = pickFiles(tree);
-    scanLog(`${tree.length} entries found, ${files.length} candidate file(s) selected (cap: 60 files / 250KB each)`);
-    if (!files.length) throw new Error("No scannable files found (check the repo isn't empty and uses common source extensions)");
-    scanLog(`fetching ${files.length} file(s) from raw.githubusercontent.com ...`);
-    let done = 0;
-    const contents = await mapLimit(files, 6, async (f) => {
-      const text = await fetchRaw(owner, repo, branch, f.path);
-      done++;
-      if (done % 10 === 0) scanLog(`fetched ${done}/${files.length} ...`);
-      return { path: f.path, text };
-    });
-    scanLog(`running rule engine on ${contents.filter(Boolean).length} file(s) ...`);
-    let findings = [];
-    for (const c of contents) { if (c) findings = findings.concat(scanFileContent(c.path, c.text)); }
-    scanLog(`done — ${findings.length} finding(s)`, "ok");
-    finalizeScan(findings, `${owner}/${repo}@${branch}`, { name: `🛰 ${owner}/${repo}`, lang: `branch: ${branch}`, url: `github.com/${owner}/${repo} · ${files.length} files scanned` });
-  } catch (e) {
-    scanLog(e.message, "err");
-    scanErrorShow(e.message);
-  } finally { setButtonsDisabled(false); }
-});
-
-document.getElementById("paste-scan-btn").addEventListener("click", () => {
-  scanLogReset();
-  const code = document.getElementById("paste-code").value;
-  const name = document.getElementById("paste-name").value.trim() || "pasted-snippet.txt";
-  if (!code.trim()) { scanErrorShow("Paste some code first."); return; }
-  scanLog(`scanning pasted content as ${name} ...`);
-  const findings = scanFileContent(name, code);
-  scanLog(`done — ${findings.length} finding(s)`, "ok");
-  finalizeScan(findings, name, { name: `📄 ${name}`, lang: "pasted", url: `${code.split("\n").length} lines` });
-});
-
-document.getElementById("upload-scan-btn").addEventListener("click", async () => {
-  scanLogReset();
-  const input = document.getElementById("upload-files");
-  const files = Array.from(input.files || []);
-  if (!files.length) { scanErrorShow("Choose one or more files first."); return; }
-  setButtonsDisabled(true);
-  try {
-    scanLog(`reading ${files.length} file(s) ...`);
-    const texts = await Promise.all(files.map(f => f.text()));
-    let findings = [];
-    files.forEach((f, idx) => { findings = findings.concat(scanFileContent(f.name, texts[idx])); });
-    scanLog(`done — ${findings.length} finding(s)`, "ok");
-    finalizeScan(findings, `${files.length} uploaded file(s)`, { name: `📁 ${files.length} uploaded file(s)`, lang: "local upload", url: files.map(f => f.name).join(", ").slice(0, 120) });
-  } catch (e) { scanLog(e.message, "err"); scanErrorShow(e.message); } finally { setButtonsDisabled(false); }
-});
-
-/* Init */
-renderAll();
-</script>
+<script src="assets/portrait.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
