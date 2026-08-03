@@ -201,6 +201,9 @@ const NetTrace = (() => {
   let count = 0;
   return {
     reset() { count = 0; listEl.innerHTML = ""; },
+    // Lets the fetch wrapper skip cloning+reading a body it would only throw
+    // away. On a 60-file scan that's ~35 wasted full-body reads.
+    isFull() { return count >= MAX_ITEMS; },
     add(url, status, ms, preview) {
       if (count >= MAX_ITEMS) return;
       count++;
@@ -230,6 +233,7 @@ const NetTrace = (() => {
     const t = performance.now();
     const res = await nativeFetch(input, init);
     const ms = performance.now() - t;
+    if (NetTrace.isFull()) return res;   // don't pay for a clone we'd discard
     let preview = "";
     try { preview = (await res.clone().text()).slice(0, 600); } catch (_) { /* body unreadable — trace the headers anyway */ }
     NetTrace.add(url, res.status, ms, preview);
@@ -520,6 +524,10 @@ document.getElementById("upload-files").addEventListener("change", (e) => {
    SCAN ACTIONS
 ===================================================================== */
 function finalizeScan(findings, targetLabel, repoCard, opts) {
+  // Defensive: a hand-edited or truncated cache entry shouldn't be able to
+  // render "undefined" into the UI or crash the renderer.
+  findings = Array.isArray(findings) ? findings : [];
+  targetLabel = typeof targetLabel === "string" && targetLabel ? targetLabel : "unknown target";
   current.issues = findings;
   current.repoCards = repoCard ? [repoCard] : [];
   current.targetLabel = targetLabel;
